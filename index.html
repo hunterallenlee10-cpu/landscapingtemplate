@@ -777,6 +777,35 @@
       box-shadow: 0 0 0 3px rgba(163, 230, 53, 0.15);
     }
     .field textarea { min-height: 140px; resize: vertical; }
+    .field select {
+      appearance: none;
+      -webkit-appearance: none;
+      background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none' stroke='%23F5F3EE' stroke-width='1.5'%3E%3Cpath d='M1 1.5l5 5 5-5'/%3E%3C/svg%3E") no-repeat right 1.1rem center;
+      border: 1px solid var(--hairline);
+      border-radius: 12px;
+      padding: 0.95rem 2.5rem 0.95rem 1.1rem;
+      color: var(--text);
+      width: 100%;
+      font: inherit;
+    }
+    .field select:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(163, 230, 53, 0.15);
+    }
+    .field [aria-invalid="true"] { border-color: #F2A65A; }
+    .field-error { font-size: 0.875rem; color: #F2A65A; }
+    .field-error[hidden], .form-status[hidden] { display: none; }
+    .form-status {
+      padding: 0.9rem 1.1rem;
+      border-radius: 12px;
+      border: 1px solid rgba(242, 166, 90, 0.45);
+      background: rgba(242, 166, 90, 0.08);
+      font-size: 0.9375rem;
+    }
+    .hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+    .quote-form { position: relative; }
+    .quote-form .btn:disabled { opacity: 0.6; cursor: progress; transform: none; }
     .quote-form .btn { grid-column: 1 / -1; justify-self: center; min-width: 260px; }
 
     .contact-alt {
@@ -1147,24 +1176,48 @@
         <h2 class="section-title reveal">Let's walk your property.</h2>
         <p class="section-sub reveal">Tell us a little about the grounds. We'll come see them, listen more than we talk, and put a plan on paper.</p>
 
-        <form class="quote-form reveal" id="quoteForm" novalidate>
+        <!-- SWAP: replace YOUR_FORM_ID with a real Formspree form ID (or point
+             action at any endpoint that accepts a POST and returns 2xx JSON).
+             Until then the form says plainly that it isn't connected. -->
+        <form class="quote-form reveal" id="quoteForm" action="https://formspree.io/f/YOUR_FORM_ID" method="POST" novalidate>
           <div class="field">
             <label for="qf-name">Name</label>
-            <input type="text" id="qf-name" name="name" autocomplete="name" placeholder="Jordan Whitfield" required>
+            <input type="text" id="qf-name" name="name" autocomplete="name" required aria-describedby="qf-name-err">
+            <span class="field-error" id="qf-name-err" hidden>Please enter your name.</span>
           </div>
           <div class="field">
-            <label for="qf-phone">Phone</label>
-            <input type="tel" id="qf-phone" name="phone" autocomplete="tel" placeholder="(301) 555-0148">
+            <label for="qf-phone">Phone <span class="opt">(optional)</span></label>
+            <input type="tel" id="qf-phone" name="phone" autocomplete="tel">
           </div>
-          <div class="field field-full">
+          <div class="field">
             <label for="qf-email">Email</label>
-            <input type="email" id="qf-email" name="email" autocomplete="email" placeholder="you@example.com" required>
+            <input type="email" id="qf-email" name="email" autocomplete="email" required aria-describedby="qf-email-err">
+            <span class="field-error" id="qf-email-err" hidden>Please enter a valid email address.</span>
+          </div>
+          <div class="field">
+            <label for="qf-town">Property town <span class="opt">(optional)</span></label>
+            <input type="text" id="qf-town" name="town" autocomplete="address-level2" placeholder="e.g. Leonardtown">
           </div>
           <div class="field field-full">
-            <label for="qf-message">About the project</label>
-            <textarea id="qf-message" name="message" placeholder="Acreage, timeline, and what the space should feel like."></textarea>
+            <label for="qf-service">What do you need?</label>
+            <select id="qf-service" name="service">
+              <option value="Not sure yet">Not sure yet</option>
+              <option value="Design &amp; build">Design &amp; build</option>
+              <option value="Patio, walls, or hardscape">Patio, walls, or hardscape</option>
+              <option value="Ongoing maintenance">Ongoing maintenance</option>
+            </select>
           </div>
-          <button type="submit" class="btn btn-primary">Request a consultation</button>
+          <div class="field field-full">
+            <label for="qf-message">About the project <span class="opt">(optional)</span></label>
+            <textarea id="qf-message" name="message" placeholder="Size of the area, rough timeline, and what you'd like it to feel like."></textarea>
+          </div>
+          <!-- spam honeypot: hidden from people, filled in by bots -->
+          <div class="hp" aria-hidden="true">
+            <label for="qf-gotcha">Leave this empty</label>
+            <input type="text" id="qf-gotcha" name="_gotcha" tabindex="-1" autocomplete="off">
+          </div>
+          <p class="form-status field-full" id="formStatus" role="alert" hidden></p>
+          <button type="submit" class="btn btn-primary">Get a quote</button>
         </form>
 
         <p class="contact-alt reveal">Prefer to talk? <a href="tel:+13015550148">(301)&nbsp;555&#8209;0148</a> <!-- SWAP: real phone --></p>
@@ -1569,16 +1622,65 @@
     (function quoteForm() {
       var form = document.getElementById('quoteForm');
       var success = document.getElementById('formSuccess');
-      if (!form || !success) return;
+      var status = document.getElementById('formStatus');
+      if (!form || !success || !status) return;
+      var button = form.querySelector('button[type="submit"]');
+      var endpoint = form.getAttribute('action') || '';
+      var connected = endpoint && endpoint.indexOf('YOUR_FORM_ID') === -1;
+      var fallback = 'Please call (301) 555-0148 or email hello@sageandstone.example.'; // SWAP: real phone + email
+
+      function showStatus(msg) {
+        status.textContent = msg;
+        status.hidden = false;
+      }
+
+      // inline errors: each required field owns a hidden .field-error message
+      function validate() {
+        var firstBad = null;
+        form.querySelectorAll('[required]').forEach(function (input) {
+          var err = document.getElementById(input.getAttribute('aria-describedby'));
+          var ok = input.checkValidity();
+          input.setAttribute('aria-invalid', String(!ok));
+          if (err) err.hidden = ok;
+          if (!ok && !firstBad) firstBad = input;
+        });
+        if (firstBad) firstBad.focus();
+        return !firstBad;
+      }
+      form.addEventListener('input', function (e) {
+        var input = e.target;
+        if (input.getAttribute('aria-invalid') === 'true' && input.checkValidity()) {
+          input.setAttribute('aria-invalid', 'false');
+          var err = document.getElementById(input.getAttribute('aria-describedby'));
+          if (err) err.hidden = true;
+        }
+      });
+
       form.addEventListener('submit', function (e) {
         e.preventDefault();
-        if (!form.checkValidity()) {
-          form.reportValidity();
+        status.hidden = true;
+        if (!validate()) return;
+        if (!connected) {
+          showStatus('This form isn’t connected yet. ' + fallback);
           return;
         }
-        form.hidden = true;
-        success.hidden = false;
-        success.focus();
+        button.disabled = true;
+        button.textContent = 'Sending…';
+        fetch(endpoint, {
+          method: 'POST',
+          body: new FormData(form),
+          headers: { Accept: 'application/json' }
+        }).then(function (res) {
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          form.hidden = true;
+          success.hidden = false;
+          success.focus();
+        }).catch(function () {
+          showStatus('Sorry, that didn’t send. ' + fallback);
+        }).then(function () {
+          button.disabled = false;
+          button.textContent = 'Get a quote';
+        });
       });
     })();
   })();
