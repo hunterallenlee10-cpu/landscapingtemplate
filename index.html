@@ -971,6 +971,8 @@
       transition: color 0.2s var(--ease);
     }
     .footer-links a:hover { color: var(--text); }
+    .footer-bottom a { transition: color 0.2s var(--ease); }
+    .footer-bottom a:hover { color: var(--text); }
 
 
     .footer-bottom {
@@ -987,6 +989,7 @@
 
     @media (max-width: 820px) {
       .footer-grid { grid-template-columns: 1fr; gap: 2.5rem; }
+      .footer { padding-bottom: calc(2.5rem + 76px); }
     }
 
     /* ============================================================
@@ -1372,6 +1375,7 @@
       <div class="footer-bottom">
         <span>© <span id="year">2026</span> Sage &amp; Stone Landscaping. All rights reserved. Photos are stock images for illustration.</span><!-- SWAP: remove once real project photos are in -->
         <span>MHIC #[license number] <!-- SWAP: real MHIC license number --> · Licensed &amp; insured</span>
+        <span style="flex-basis: 100%;">Website by <a href="https://www.leeenterprisesunlimited.com/" target="_blank" rel="noopener">Lee Enterprises Unlimited</a></span>
       </div>
     </div>
   </footer>
